@@ -94,9 +94,77 @@ int object_exists(const ObjectID *id) {
 //
 // Returns 0 on success, -1 on error.
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
-    // TODO: Implement
-    (void)type; (void)data; (void)len; (void)id_out;
-    return -1;
+
+    // Step 1: Convert type to string
+    const char *type_str;
+    if (type == OBJ_BLOB) type_str = "blob";
+    else if (type == OBJ_TREE) type_str = "tree";
+    else if (type == OBJ_COMMIT) type_str = "commit";
+    else return -1;
+
+    // Step 2: Build header
+    char header[64];
+    int header_len = snprintf(header, sizeof(header), "%s %zu", type_str, len) + 1;
+
+    // Step 3: Combine header + data
+    size_t total = header_len + len;
+    uint8_t *full = malloc(total);
+    if (!full) return -1;
+
+    memcpy(full, header, header_len);
+    memcpy(full + header_len, data, len);
+
+    // Step 4: Compute hash
+    ObjectID id;
+    compute_hash(full, total, &id);
+
+    // Step 5: Deduplication
+    if (object_exists(&id)) {
+        *id_out = id;
+        free(full);
+        return 0;
+    }
+
+    // Step 6: Create shard directory
+    char hex[HASH_HEX_SIZE + 1];
+    hash_to_hex(&id, hex);
+
+    char shard_dir[256];
+    snprintf(shard_dir, sizeof(shard_dir), "%s/%.2s", OBJECTS_DIR, hex);
+    mkdir(shard_dir, 0755); // ignore error if exists
+
+    // Step 7: Create file paths
+    char final_path[512], tmp_path[520];
+    object_path(&id, final_path, sizeof(final_path));
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", final_path);
+
+    // Step 8: Write temp file
+    int fd = open(tmp_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    if (fd < 0) { free(full); return -1; }
+
+    if (write(fd, full, total) != (ssize_t)total) {
+        close(fd);
+        free(full);
+        return -1;
+    }
+
+    fsync(fd);
+    close(fd);
+
+    // Step 9: Atomic rename
+    rename(tmp_path, final_path);
+
+    // Step 10: fsync directory
+    int dir_fd = open(shard_dir, O_RDONLY);
+    if (dir_fd >= 0) {
+        fsync(dir_fd);
+        close(dir_fd);
+    }
+
+    // Step 11: Return hash
+    *id_out = id;
+    free(full);
+    return 0;
 }
 
 // Read an object from the store.
