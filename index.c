@@ -143,6 +143,25 @@ if (!f) {
 
 index->count = 0;
 
+while (index->count < MAX_INDEX_ENTRIES) {
+    IndexEntry *e = &index->entries[index->count];
+
+    char hex[HASH_HEX_SIZE + 1];
+
+    int ret = fscanf(f, "%o %64s %ld %zu %s",
+                     &e->mode,
+                     hex,
+                     &e->mtime,
+                     &e->size,
+                     e->path);
+
+    if (ret != 5) break;
+
+    hex_to_hash(hex, &e->id);
+
+    index->count++;
+}
+
 fclose(f);
 return 0;
 
