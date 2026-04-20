@@ -134,12 +134,17 @@ int index_status(const Index *index) {
 //   - hex_to_hash                      : converting the parsed string to ObjectID
 //
 // Returns 0 on success, -1 on error.
-int index_load(Index *index) {
-    // TODO: Implement index loading
-    // (See Lab Appendix for logical steps)
-    (void)index;
-    return -1;
+FILE *f = fopen(INDEX_FILE, "r");
+
+if (!f) {
+    index->count = 0;
+    return 0;
 }
+
+index->count = 0;
+
+fclose(f);
+return 0;
 
 // Save the index to .pes/index atomically.
 //
