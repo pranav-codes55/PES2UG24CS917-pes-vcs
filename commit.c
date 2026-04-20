@@ -1,5 +1,5 @@
 // commit.c — Commit creation and history traversal
-
+// Phase 4 step 1
 #include "commit.h"
 #include "index.h"
 #include "tree.h"
