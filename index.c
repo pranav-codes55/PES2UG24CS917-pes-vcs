@@ -126,7 +126,38 @@ int index_status(const Index *index) {
 }
 
 // ─── TODO: Implement these ───────────────────────────────────────────────────
+int index_load(Index *index) {
+    FILE *f = fopen(INDEX_FILE, "r");
 
+    if (!f) {
+        index->count = 0;
+        return 0;
+    }
+
+    index->count = 0;
+
+    while (index->count < MAX_INDEX_ENTRIES) {
+        IndexEntry *e = &index->entries[index->count];
+
+        char hex[HASH_HEX_SIZE + 1];
+
+        int ret = fscanf(f, "%o %64s %ld %u %s",
+                         &e->mode,
+                         hex,
+                         &e->mtime_sec,
+                         &e->size,
+                         e->path);
+
+        if (ret != 5) break;
+
+        hex_to_hash(hex, &e->hash);
+
+        index->count++;
+    }
+
+    fclose(f);
+    return 0;
+}
 // Load the index from .pes/index.
 //
 // HINTS - Useful functions:
@@ -134,36 +165,8 @@ int index_status(const Index *index) {
 //   - hex_to_hash                      : converting the parsed string to ObjectID
 //
 // Returns 0 on success, -1 on error.
-FILE *f = fopen(INDEX_FILE, "r");
 
-if (!f) {
-    index->count = 0;
-    return 0;
-}
 
-index->count = 0;
-
-while (index->count < MAX_INDEX_ENTRIES) {
-    IndexEntry *e = &index->entries[index->count];
-
-    char hex[HASH_HEX_SIZE + 1];
-
-    int ret = fscanf(f, "%o %64s %ld %zu %s",
-                     &e->mode,
-                     hex,
-                     &e->mtime,
-                     &e->size,
-                     e->path);
-
-    if (ret != 5) break;
-
-    hex_to_hash(hex, &e->id);
-
-    index->count++;
-}
-
-fclose(f);
-return 0;
 
 // Save the index to .pes/index atomically.
 //
